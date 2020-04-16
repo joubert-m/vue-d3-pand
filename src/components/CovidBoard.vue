@@ -11,41 +11,32 @@
   import * as d3 from "d3";
 
   export default {
-    name: 'HelloWorld',
+    name: 'CovidBoard',
     props: {
       msg: String
-    },
-    data() {
-      return {
-        gdp: [
-          {country: "USA", value: 20.5},
-          {country: "China", value: 13.4},
-          {country: "Germany", value: 4.0},
-          {country: "Japan", value: 4.9},
-          {country: "France", value: 2.8}
-        ]
-      };
     },
     mounted() {
       this.generateRace();
     },
+
+    data() {
+      return {
+        top_n: 12,
+        cumulativeByCountry: {},
+        entryByDate: {},
+        tickDuration: 300,
+        height: 600,
+        width: 960
+      }
+    },
+
     methods: {
 
       generateRace() {
-
-
-        let cummumativesByCountry = {};
-        let entryByDate = {};
-
+        
         let svg = d3.select("#graph").append("svg")
           .attr("width", 960)
           .attr("height", 600);
-
-        const tickDuration = 300;
-
-        const top_n = 12;
-        const height = 600;
-        const width = 960;
 
         const margin = {
           top: 80,
@@ -54,7 +45,7 @@
           left: 0
         };
 
-        const barPadding = (height - (margin.bottom + margin.top)) / (top_n * 5);
+        const barPadding = (this.height - (margin.bottom + margin.top)) / (this.top_n * 5);
 
         svg.append('text')
           .attr('class', 'title')
@@ -68,8 +59,8 @@
 
         svg.append('text')
           .attr('class', 'caption')
-          .attr('x', width)
-          .attr('y', height - 5)
+          .attr('x', this.width)
+          .attr('y', this.height - 5)
           .style('text-anchor', 'end')
           .html('Source: European Centre for Disease Prevention and Control');
 
@@ -79,7 +70,7 @@
         let proxyUrl = 'https://cors-anywhere.herokuapp.com/',
           targetUrl = 'https://opendata.ecdc.europa.eu/covid19/casedistribution/json/';
 
-        d3.json(proxyUrl + targetUrl).then(function (data) {
+        d3.json(proxyUrl + targetUrl).then((data) => {
 
           data = data.records;
           const today = new Date();
@@ -94,44 +85,29 @@
             d.popData2018 = +d.popData2018;
             d.colour = d3.hsl(Math.random() * 360, 0.75, 0.75);
 
-            if(d.dateRep in entryByDate){
-              let prev = entryByDate[d.dateRep];
+            if (d.dateRep in this.entryByDate) {
+              let prev = this.entryByDate[d.dateRep];
               prev.push(d);
-              entryByDate[d.dateRep] = prev;
-            }
-            else{
-              entryByDate[d.dateRep] = [d];
+              this.entryByDate[d.dateRep] = prev;
+            } else {
+              this.entryByDate[d.dateRep] = [d];
             }
           });
 
-          let dateSlice = entryByDate[startDate].sort((a, b) => {
-              let ax = a.cases;
-              let bx = b.cases;
-              if(a.countriesAndTerritories in cummumativesByCountry)
-                ax += cummumativesByCountry[a.countriesAndTerritories];
-              if(b.countriesAndTerritories in cummumativesByCountry)
-                bx += cummumativesByCountry[b.countriesAndTerritories];
-              return bx - ax
-            })
-            .slice(0, top_n);
-
-          dateSlice.forEach((d, i) => {
-            d.rank = i;
-            cummumativesByCountry[d.countriesAndTerritories] = d.cases
-          });
+          let dateSlice = this.getSanitizedData(this.entryByDate[startDate], this.cumulativeByCountry);
 
           let x = d3.scaleLinear()
-            .domain([0, d3.max(dateSlice, d => cummumativesByCountry[d.countriesAndTerritories])])
-            .range([margin.left, width - margin.right - 65]);
+            .domain([0, d3.max(dateSlice, d => this.cumulativeByCountry[d.countriesAndTerritories])])
+            .range([margin.left, this.width - margin.right - 65]);
 
           let y = d3.scaleLinear()
-            .domain([top_n, 0])
-            .range([height - margin.bottom, margin.top]);
+            .domain([this.top_n, 0])
+            .range([this.height - margin.bottom, margin.top]);
 
           let xAxis = d3.axisTop()
             .scale(x)
-            .ticks(width > 500 ? 5 : 2)
-            .tickSize(-(height - margin.top - margin.bottom))
+            .ticks(this.width > 500 ? 5 : 2)
+            .tickSize(-(this.height - margin.top - margin.bottom))
             .tickFormat(d => d3.format(',')(d));
 
           svg.append('g')
@@ -147,7 +123,7 @@
             .append('rect')
             .attr('class', 'bar')
             .attr('x', x(0) + 1)
-            .attr('width', d => x(cummumativesByCountry[d.countriesAndTerritories]) - x(0))
+            .attr('width', d => x(this.cumulativeByCountry[d.countriesAndTerritories]) - x(0))
             .attr('y', d => y(d.rank) + 5)
             .attr('height', y(1) - y(0) - barPadding)
             .style('fill', d => d.colour);
@@ -157,7 +133,7 @@
             .enter()
             .append('text')
             .attr('class', 'label')
-            .attr('x', d => x(cummumativesByCountry[d.countriesAndTerritories]) - 8)
+            .attr('x', d => x(this.cumulativeByCountry[d.countriesAndTerritories]) - 8)
             .attr('y', d => y(d.rank) + 5 + ((y(1) - y(0)) / 2) + 1)
             .style('text-anchor', 'end')
             .html(d => d.countriesAndTerritories);
@@ -167,45 +143,26 @@
             .enter()
             .append('text')
             .attr('class', 'valueLabel')
-            .attr('x', d => x(cummumativesByCountry[d.countriesAndTerritories]) + 5)
+            .attr('x', d => x(this.cumulativeByCountry[d.countriesAndTerritories]) + 5)
             .attr('y', d => y(d.rank) + 5 + ((y(1) - y(0)) / 2) + 1)
-            .text(d => d3.format(',.0f')(cummumativesByCountry[d.countriesAndTerritories]));
+            .text(d => d3.format(',.0f')(this.cumulativeByCountry[d.countriesAndTerritories]));
 
           let yearText = svg.append('text')
             .attr('class', 'yearText')
-            .attr('x', width - margin.right)
-            .attr('y', height - 25)
+            .attr('x', this.width - margin.right)
+            .attr('y', this.height - 25)
             .style('text-anchor', 'end')
-            .html(startDate.toDateString())
+            .html(this.displayableDate(startDate))
             .call(halo, 10);
 
           let ticker = d3.interval(() => {
+            let dateSlice = this.getSanitizedData(this.entryByDate[startDate], this.cumulativeByCountry);
 
-            let dateSlice = entryByDate[startDate].sort((a, b) => {
-                let ax = a.cases;
-                let bx = b.cases;
-                if(a.countriesAndTerritories in cummumativesByCountry)
-                  ax += cummumativesByCountry[a.countriesAndTerritories];
-                if(b.countriesAndTerritories in cummumativesByCountry)
-                  bx += cummumativesByCountry[b.countriesAndTerritories];
-                return bx - ax
-              })
-              .slice(0, top_n);
-
-            dateSlice.forEach((d, i) => {
-              d.rank = i;
-              if (d.countriesAndTerritories in cummumativesByCountry) {
-                cummumativesByCountry[d.countriesAndTerritories] = d.cases + cummumativesByCountry[d.countriesAndTerritories]
-              } else {
-                cummumativesByCountry[d.countriesAndTerritories] = d.cases
-              }
-            });
-
-            x.domain([0, d3.max(dateSlice, d => cummumativesByCountry[d.countriesAndTerritories])]);
+            x.domain([0, d3.max(dateSlice, d => this.cumulativeByCountry[d.countriesAndTerritories])]);
 
             svg.select('.xAxis')
               .transition()
-              .duration(tickDuration)
+              .duration(this.tickDuration)
               .ease(d3.easeLinear)
               .call(xAxis);
 
@@ -216,29 +173,29 @@
               .append('rect')
               .attr('class', d => `bar ${d.countriesAndTerritories.replace(/\s/g, '_')}`)
               .attr('x', x(0) + 1)
-              .attr('width', d => x(cummumativesByCountry[d.countriesAndTerritories]) - x(0))
-              .attr('y', () => y(top_n + 1) + 5)
+              .attr('width', d => x(this.cumulativeByCountry[d.countriesAndTerritories]) - x(0))
+              .attr('y', () => y(this.top_n + 1) + 5)
               .attr('height', y(1) - y(0) - barPadding)
               .style('fill', d => d.colour)
               .transition()
-              .duration(tickDuration)
+              .duration(this.tickDuration)
               .ease(d3.easeLinear)
               .attr('y', d => y(d.rank) + 5);
 
             bars
               .transition()
-              .duration(tickDuration)
+              .duration(this.tickDuration)
               .ease(d3.easeLinear)
-              .attr('width', d => x(cummumativesByCountry[d.countriesAndTerritories]) - x(0) - 1)
+              .attr('width', d => x(this.cumulativeByCountry[d.countriesAndTerritories]) - x(0) - 1)
               .attr('y', d => y(d.rank) + 5);
 
             bars
               .exit()
               .transition()
-              .duration(tickDuration)
+              .duration(this.tickDuration)
               .ease(d3.easeLinear)
-              .attr('width', d => x(cummumativesByCountry[d.countriesAndTerritories]) - x(0) - 1)
-              .attr('y',() => y(top_n + 1) + 5)
+              .attr('width', d => x(this.cumulativeByCountry[d.countriesAndTerritories]) - x(0) - 1)
+              .attr('y', () => y(this.top_n + 1) + 5)
               .remove();
 
             let labels = svg.selectAll('.label')
@@ -248,30 +205,30 @@
               .enter()
               .append('text')
               .attr('class', 'label')
-              .attr('x', d => x(cummumativesByCountry[d.countriesAndTerritories]) - 8)
-              .attr('y', () => y(top_n + 1) + 5 + ((y(1) - y(0)) / 2))
+              .attr('x', d => x(this.cumulativeByCountry[d.countriesAndTerritories]) - 8)
+              .attr('y', () => y(this.top_n + 1) + 5 + ((y(1) - y(0)) / 2))
               .style('text-anchor', 'end')
               .html(d => d.countriesAndTerritories)
               .transition()
-              .duration(tickDuration)
+              .duration(this.tickDuration)
               .ease(d3.easeLinear)
               .attr('y', d => y(d.rank) + 5 + ((y(1) - y(0)) / 2) + 1);
 
 
             labels
               .transition()
-              .duration(tickDuration)
+              .duration(this.tickDuration)
               .ease(d3.easeLinear)
-              .attr('x', d => x(cummumativesByCountry[d.countriesAndTerritories]) - 8)
+              .attr('x', d => x(this.cumulativeByCountry[d.countriesAndTerritories]) - 8)
               .attr('y', d => y(d.rank) + 5 + ((y(1) - y(0)) / 2) + 1);
 
             labels
               .exit()
               .transition()
-              .duration(tickDuration)
+              .duration(this.tickDuration)
               .ease(d3.easeLinear)
-              .attr('x', d => x(cummumativesByCountry[d.countriesAndTerritories]) - 8)
-              .attr('y', () => y(top_n + 1) + 5)
+              .attr('x', d => x(this.cumulativeByCountry[d.countriesAndTerritories]) - 8)
+              .attr('y', () => y(this.top_n + 1) + 5)
               .remove();
 
 
@@ -281,53 +238,84 @@
               .enter()
               .append('text')
               .attr('class', 'valueLabel')
-              .attr('x', d => x(cummumativesByCountry[d.countriesAndTerritories]) + 5)
-              .attr('y', () => y(top_n + 1) + 5)
-              .text(d => d3.format(',.0f')(cummumativesByCountry[d.countriesAndTerritories]))
+              .attr('x', d => x(this.cumulativeByCountry[d.countriesAndTerritories]) + 5)
+              .attr('y', () => y(this.top_n + 1) + 5)
+              .text(d => d3.format(',.0f')(this.cumulativeByCountry[d.countriesAndTerritories]))
               .transition()
-              .duration(tickDuration)
+              .duration(this.tickDuration)
               .ease(d3.easeLinear)
               .attr('y', d => y(d.rank) + 5 + ((y(1) - y(0)) / 2) + 1);
 
             valueLabels
               .transition()
-              .duration(tickDuration)
+              .duration(this.tickDuration)
               .ease(d3.easeLinear)
-              .attr('x', d => x(cummumativesByCountry[d.countriesAndTerritories]) + 5)
-              .attr('y', d => y(d.rank) + 5 + ((y(1) - y(0)) / 2) + 1);
+              .attr('x', d => x(this.cumulativeByCountry[d.countriesAndTerritories]) + 5)
+              .attr('y', d => y(d.rank) + 5 + ((y(1) - y(0)) / 2) + 1)
+              .tween("text", (d) => {
+                let i = d3.interpolateRound(this.cumulativeByCountry[d.countriesAndTerritories], this.cumulativeByCountry[d.countriesAndTerritories]);
+                return function (t) {
+                  this.textContent = d3.format(',')(i(t));
+                };
+              });
+
 
             valueLabels
               .exit()
               .transition()
-              .duration(tickDuration)
+              .duration(this.tickDuration)
               .ease(d3.easeLinear)
-              .attr('x', d => x(cummumativesByCountry[d.countriesAndTerritories]) + 5)
-              .attr('y', () => y(top_n + 1) + 5)
+              .attr('x', d => x(this.cumulativeByCountry[d.countriesAndTerritories]) + 5)
+              .attr('y', () => y(this.top_n + 1) + 5)
               .remove();
 
-            yearText.html(startDate.toLocaleString());
+            yearText.html(this.displayableDate(startDate));
 
             if (today.getDate() === startDate.getDate()
               && today.getMonth() === startDate.getMonth()
               && today.getFullYear() === startDate.getFullYear())
               ticker.stop();
             startDate.setDate(startDate.getDate() + 1);
-          }, tickDuration);
+          }, this.tickDuration);
 
         });
 
-        const halo = function (text, strokeWidth) {
+        const halo = function (text, strokewidth) {
           text.select(function () {
             return this.parentNode.insertBefore(this.cloneNode(true), this);
           })
             .style('fill', '#ffffff')
             .style('stroke', '#ffffff')
-            .style('stroke-width', strokeWidth)
+            .style('stroke-width', strokewidth)
             .style('stroke-linejoin', 'round')
             .style('opacity', 1);
 
         }
       },
+
+      displayableDate(startDate) {
+        return startDate.getDate() + '/' + parseInt(startDate.getMonth() + 1) + '/' + startDate.getFullYear()
+      },
+
+      getSanitizedData(dateEntries) {
+        dateEntries.forEach((d) => {
+          if (d.countriesAndTerritories in this.cumulativeByCountry) {
+            this.cumulativeByCountry[d.countriesAndTerritories] = d.cases + this.cumulativeByCountry[d.countriesAndTerritories]
+          } else {
+            this.cumulativeByCountry[d.countriesAndTerritories] = d.cases
+          }
+        });
+
+        this.cumulativeByCountry['China'] = 0;
+
+        let dateSlice = dateEntries.sort((a, b) => {
+          return this.cumulativeByCountry[b.countriesAndTerritories] - this.cumulativeByCountry[a.countriesAndTerritories]
+        }).slice(0, this.top_n);
+
+        dateSlice.forEach((d, i) => d.rank = i);
+
+        return dateSlice
+      }
     }
   }
 </script>

@@ -1,16 +1,16 @@
 <template>
   <div id="app">
-    <HelloWorld msg="Welcome to vue-d3-pand"/>
+    <CoviBoard msg="Welcome to vue-d3-pand"/>
   </div>
 </template>
 
 <script>
-import HelloWorld from './components/CovidBoard.vue'
+import CoviBoard from './components/CovidBoard.vue'
 
 export default {
   name: 'App',
   components: {
-    HelloWorld
+    CoviBoard
   }
 }
 </script>
