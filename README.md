@@ -1,4 +1,8 @@
-# vue-d3-pand
+# vue-d3-pand [WIP]
+
+A web app providing data on the covid-19 pandemic
+
+![](src/assets/race.jpg)
 
 ## Project setup
 ```
